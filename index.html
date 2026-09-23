@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>sorry</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    width:100%; height:100%;
+    background:#ffffff;
+    overflow:hidden;
+    cursor:pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  #imageOverlay {
+    position:fixed;
+    top:0; left:0;
+    width:100vw; height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(0,0,0,0.85);
+    z-index:9999;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    /* শুধু opacity animate হবে, visibility আলাদা rule এ handle হবে */
+    transition: opacity 0.5s ease-in-out;
+  }
+
+  /* Fade IN */
+  #imageOverlay.show {
+    opacity:1;
+    visibility:visible;
+    transition: opacity 0.5s ease-in-out;
+  }
+
+  /* Fade OUT — visibility কে opacity শেষ হওয়ার পর hide করব JS দিয়ে */
+  #imageOverlay.hide {
+    opacity:0;
+    visibility:visible;   /* এখনো visible, যাতে fade দেখা যায় */
+    transition: opacity 0.5s ease-in-out;
+  }
+
+  #imageOverlay img {
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+    user-select:none;
+    -webkit-user-drag:none;
+  }
+</style>
+</head>
+<body>
+
+<div id="imageOverlay">
+  <img id="overlayImg" src="https://iili.io/nAlQU1R.jpg" alt="">
+</div>
+
+<script>
+(function () {
+  let triggered = false;
+  let audio1 = null, audio2 = null;
+
+  // ⚠️ এই দুইটা লিংক অবশ্যই কাজ করতে হবে। ব্রাউজারে খুলে টেস্ট করুন।
+  const AUDIO1_SRC = 'https://www.image2url.com/r2/default/audio/1790188859365-6715064e-a91a-40c1-a09c-f1dbd8442e35.mp3';
+  const AUDIO2_SRC = 'https://www.image2url.com/r2/default/audio/1790188983335-e46d9c17-54e8-40e2-af9c-9e2faf6ce565.mp3';
+
+  const overlay = document.getElementById('imageOverlay');
+
+  // ---------- অডিও ----------
+  function createAudios() {
+    audio1 = new Audio(AUDIO1_SRC);
+    audio2 = new Audio(AUDIO2_SRC);
+
+    [audio1, audio2].forEach(a => {
+      a.volume = 1.0;
+      a.loop = true;
+      a.preload = 'auto';
+      a.setAttribute('playsinline', '');
+      a.setAttribute('webkit-playsinline', '');
+    });
+  }
+
+  function playAll() {
+    [audio1, audio2].forEach(a => {
+      if (!a) return;
+      const p = a.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch(err => {
+          console.warn('Audio blocked, retrying...', err);
+          setTimeout(() => a.play().catch(() => {}), 150);
+        });
+      }
+    });
+  }
+
+  // ---------- ছবি: আসবে → থাকবে → যাবে ----------
+  function showImageOnce() {
+    // Step 1: element কে জোর করে render করাই (transition trigger এর জন্য)
+    overlay.getBoundingClientRect();
+
+    // Step 2: প্রথমে hide ক্লাস থাকলে সরাই, show ক্লাস দিই
+    overlay.classList.remove('hide');
+    overlay.classList.add('show');
+
+    // Step 3: ৭০০ms পর fade-out শুরু (০.৫s দেখা + ০.২s buffer)
+    setTimeout(() => {
+      overlay.classList.remove('show');
+      overlay.classList.add('hide');
+
+      // Step 4: fade-out শেষ (০.৫s) হওয়ার পর visibility:hidden করে দিই
+      setTimeout(() => {
+        overlay.classList.remove('hide');
+        // এখানে opacity:0, visibility:hidden — আবার আগের অবস্থায় ফিরে গেল
+      }, 500);
+
+    }, 700);
+  }
+
+  // ---------- প্রথম ইন্টারঅ্যাকশন ----------
+  function onFirstInteraction(e) {
+    if (triggered) return;
+    triggered = true;
+
+    createAudios();
+    playAll();
+    showImageOnce();
+
+    // একবার trigger হলে সব listener সরিয়ে দিই
+    document.removeEventListener('pointerdown', onFirstInteraction, true);
+    document.removeEventListener('touchstart', onFirstInteraction, true);
+    document.removeEventListener('click', onFirstInteraction, true);
+    document.removeEventListener('keydown', onFirstInteraction, true);
+  }
+
+  // pointerdown সবচেয়ে reliable (mouse + touch + pen একসাথে)
+  if (window.PointerEvent) {
+    document.addEventListener('pointerdown', onFirstInteraction, true);
+  } else {
+    document.addEventListener('touchstart', onFirstInteraction, true);
+    document.addEventListener('mousedown', onFirstInteraction, true);
+  }
+  // fallback: keyboard
+  document.addEventListener('keydown', onFirstInteraction, true);
+
+})();
+</script>
+
+</body>
+</html>
